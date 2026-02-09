@@ -1,8 +1,8 @@
 gradio==4.44.1
-tensorflow==2.20.0
+tensorflow==2.13.0
 numpy
 pillow
-opencv-python
-reportlab
+opencv-python-headless
 pandas
 scikit-learn
+reportlab

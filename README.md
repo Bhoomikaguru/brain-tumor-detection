@@ -1,14 +1,11 @@
 ---
 title: Brain Tumor Detection
 emoji: 🧠
-colorFrom: blue
-colorTo: purple
+colorFrom: indigo
+colorTo: blue
 sdk: gradio
 sdk_version: 4.44.1
+python_version: 3.10
 app_file: app.py
 pinned: false
 ---
-
-# Brain Tumor Detection System
-
-Upload an MRI image to detect the presence of a brain tumor using a deep learning model.
