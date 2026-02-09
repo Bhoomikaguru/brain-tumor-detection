@@ -1,12 +1,16 @@
 ---
 title: Brain Tumor Detection
-emoji: ⚡
-colorFrom: pink
+emoji: 🧠
+colorFrom: indigo
 colorTo: blue
 sdk: gradio
-sdk_version: 6.5.1
+sdk_version: 4.0
 app_file: app.py
 pinned: false
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+## Brain Tumor Detection System
+
+Upload an MRI image to detect the presence of a brain tumor and download an AI-generated medical report.
+
+**Disclaimer:** This tool is for educational purposes only and is not a medical diagnosis.
