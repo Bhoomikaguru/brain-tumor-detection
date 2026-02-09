@@ -1,0 +1,9 @@
+venv/
+dataset/
+data/
+models/
+.gradio/
+*.h5
+*.db
+*.csv
+__pycache__/
