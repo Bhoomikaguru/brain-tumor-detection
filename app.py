@@ -1,19 +1,19 @@
 import gradio as gr
-from PIL import Image
-import numpy as np
 
 def predict(image):
-    if image is None:
-        return "❌ Please upload an image."
-    return "✅ App is running correctly. Model will be connected next."
+    return "Model loaded successfully ✅"
 
-demo = gr.Interface(
-    fn=predict,
-    inputs=gr.Image(type="pil"),
-    outputs="text",
-    title="🧠 Brain Tumour Detection",
-    description="Deployment sanity check. Model integration comes next."
-)
+with gr.Blocks() as demo:
+    gr.Markdown("# 🧠 Brain Tumour Detection")
+    img = gr.Image(type="pil", label="Upload MRI Image")
+    out = gr.Textbox(label="Prediction")
+    btn = gr.Button("Predict")
 
-if __name__ == "__main__":
-    demo.launch()
+    btn.click(
+        fn=predict,
+        inputs=img,
+        outputs=out
+    )
+
+# IMPORTANT: HF Spaces needs server_name + no share
+demo.launch(server_name="0.0.0.0", server_port=7860)
