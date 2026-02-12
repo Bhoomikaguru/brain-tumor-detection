@@ -1,16 +1,14 @@
 ---
-title: Brain Tumor Detection
+title: Brain Tumour Detection
 emoji: 🧠
-colorFrom: indigo
-colorTo: blue
+colorFrom: blue
+colorTo: purple
 sdk: gradio
-sdk_version: 4.0
+sdk_version: 4.44.1
 app_file: app.py
 pinned: false
 ---
 
-## Brain Tumor Detection System
+# 🧠 Brain Tumour Detection
 
-Upload an MRI image to detect the presence of a brain tumor and download an AI-generated medical report.
-
-**Disclaimer:** This tool is for educational purposes only and is not a medical diagnosis.
+Upload an MRI image to detect the presence of a brain tumour.
