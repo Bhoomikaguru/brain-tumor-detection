@@ -10,9 +10,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.colors import black
 from reportlab.lib.utils import ImageReader
 
-# ======================================================
-# CONFIG
-# ======================================================
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 REPORT_DIR = os.path.join(BASE_DIR, "reports")
@@ -23,33 +21,25 @@ os.makedirs(REPORT_DIR, exist_ok=True)
 TUMOR_MODEL_PATH = os.path.join(MODEL_DIR, "tumor_detection_model.h5")
 MRI_MODEL_PATH = os.path.join(MODEL_DIR, "mri_analysis_model.h5")
 
-# ======================================================
-# FAIL FAST
-# ======================================================
+
 if not os.path.exists(TUMOR_MODEL_PATH):
     raise FileNotFoundError(f"Missing model: {TUMOR_MODEL_PATH}")
 
 if not os.path.exists(MRI_MODEL_PATH):
     raise FileNotFoundError(f"Missing model: {MRI_MODEL_PATH}")
 
-# ======================================================
-# LOAD MODELS
-# ======================================================
+
 tumor_model = tf.keras.models.load_model(TUMOR_MODEL_PATH, compile=False)
 mri_model = tf.keras.models.load_model(MRI_MODEL_PATH, compile=False)
 
-# ======================================================
-# PREPROCESS
-# ======================================================
+
 def preprocess(image: Image.Image):
     image = image.convert("RGB")
     image = image.resize(IMG_SIZE)
     arr = np.array(image, dtype=np.float32) / 255.0
     return np.expand_dims(arr, axis=0)
 
-# ======================================================
-# PDF GENERATION (ABSOLUTELY NO OVERLAP)
-# ======================================================
+
 def generate_pdf(
     name, pid, age, notes,
     tumor_label, tumor_prob,
@@ -60,15 +50,15 @@ def generate_pdf(
     c = canvas.Canvas(pdf_path, pagesize=A4)
     width, height = A4
 
-    # Page border
+   
     c.setStrokeColor(black)
     c.rect(30, 30, width - 60, height - 60, fill=0)
 
-    # Title
+   
     c.setFont("Helvetica-Bold", 16)
     c.drawCentredString(width / 2, height - 60, "MRI Brain Tumor Analysis Report")
 
-    # ---------------- LEFT COLUMN (PATIENT INFO)
+   
     left_x = 50
     text_y = height - 120
 
@@ -96,9 +86,7 @@ def generate_pdf(
         mask="auto"
     )
 
-    # ==================================================
-    # 🔒 ALL RESULTS START *BELOW IMAGE BOTTOM*
-    # ==================================================
+   
     results_y = img_y - 40
 
     c.setFont("Helvetica-Bold", 12)
@@ -139,9 +127,7 @@ def generate_pdf(
     c.save()
     return pdf_path
 
-# ======================================================
-# PREDICT
-# ======================================================
+
 def predict(image, name, patient_id, age, notes):
     if image is None:
         return "Upload MRI image", "N/A", None
@@ -167,9 +153,7 @@ def predict(image, name, patient_id, age, notes):
         pdf_path
     )
 
-# ======================================================
-# UI
-# ======================================================
+
 app = gr.Interface(
     fn=predict,
     inputs=[
