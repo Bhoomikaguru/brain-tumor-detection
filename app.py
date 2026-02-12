@@ -1,39 +1,192 @@
-import os
+import gradio as gr
 import numpy as np
 import tensorflow as tf
-import gradio as gr
 from PIL import Image
+import os
+from datetime import datetime
 
-MODEL_PATH = "models/tumor_detection_model.h5"
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import black
+from reportlab.lib.utils import ImageReader
 
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError(f"Missing model file: {MODEL_PATH}")
+# ======================================================
+# CONFIG
+# ======================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+REPORT_DIR = os.path.join(BASE_DIR, "reports")
 
-model = tf.keras.models.load_model(MODEL_PATH)
+IMG_SIZE = (200, 200)
+os.makedirs(REPORT_DIR, exist_ok=True)
 
-IMG_SIZE = 224
-CLASS_NAMES = ["No Tumor", "Tumor Detected"]
+TUMOR_MODEL_PATH = os.path.join(MODEL_DIR, "tumor_detection_model.h5")
+MRI_MODEL_PATH = os.path.join(MODEL_DIR, "mri_analysis_model.h5")
 
-def predict(image):
+# ======================================================
+# FAIL FAST
+# ======================================================
+if not os.path.exists(TUMOR_MODEL_PATH):
+    raise FileNotFoundError(f"Missing model: {TUMOR_MODEL_PATH}")
+
+if not os.path.exists(MRI_MODEL_PATH):
+    raise FileNotFoundError(f"Missing model: {MRI_MODEL_PATH}")
+
+# ======================================================
+# LOAD MODELS
+# ======================================================
+tumor_model = tf.keras.models.load_model(TUMOR_MODEL_PATH, compile=False)
+mri_model = tf.keras.models.load_model(MRI_MODEL_PATH, compile=False)
+
+# ======================================================
+# PREPROCESS
+# ======================================================
+def preprocess(image: Image.Image):
+    image = image.convert("RGB")
+    image = image.resize(IMG_SIZE)
+    arr = np.array(image, dtype=np.float32) / 255.0
+    return np.expand_dims(arr, axis=0)
+
+# ======================================================
+# PDF GENERATION (ABSOLUTELY NO OVERLAP)
+# ======================================================
+def generate_pdf(
+    name, pid, age, notes,
+    tumor_label, tumor_prob,
+    mri_label, mri_prob,
+    image
+):
+    pdf_path = os.path.join(REPORT_DIR, f"{pid}_report.pdf")
+    c = canvas.Canvas(pdf_path, pagesize=A4)
+    width, height = A4
+
+    # Page border
+    c.setStrokeColor(black)
+    c.rect(30, 30, width - 60, height - 60, fill=0)
+
+    # Title
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width / 2, height - 60, "MRI Brain Tumor Analysis Report")
+
+    # ---------------- LEFT COLUMN (PATIENT INFO)
+    left_x = 50
+    text_y = height - 120
+
+    c.setFont("Helvetica", 12)
+    c.drawString(left_x, text_y, f"Patient Name: {name}")
+    text_y -= 20
+    c.drawString(left_x, text_y, f"Patient ID: {pid}")
+    text_y -= 20
+    c.drawString(left_x, text_y, f"Age: {age}")
+
+    # ---------------- RIGHT FIXED IMAGE BLOCK
+    img_width = 180
+    img_height = 180
+    img_x = width - img_width - 60
+    img_y = height - img_height - 140  # fixed safe zone
+
+    img_reader = ImageReader(image)
+    c.drawImage(
+        img_reader,
+        img_x,
+        img_y,
+        width=img_width,
+        height=img_height,
+        preserveAspectRatio=True,
+        mask="auto"
+    )
+
+    # ==================================================
+    # 🔒 ALL RESULTS START *BELOW IMAGE BOTTOM*
+    # ==================================================
+    results_y = img_y - 40
+
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(left_x, results_y, "Results")
+
+    results_y -= 25
+    c.setFont("Helvetica", 12)
+    c.drawString(
+        left_x,
+        results_y,
+        f"Tumor Detection: {tumor_label} (Confidence: {tumor_prob*100:.2f}%)"
+    )
+
+    results_y -= 25
+    c.drawString(
+        left_x,
+        results_y,
+        f"MRI Pattern Analysis: {mri_label} (Confidence: {mri_prob*100:.2f}%)"
+    )
+
+    # Notes
+    results_y -= 40
+    c.drawString(left_x, results_y, f"Notes: {notes}")
+
+    # Footer (always bottom safe area)
+    c.setFont("Helvetica", 10)
+    c.drawString(
+        left_x,
+        100,
+        f"Generated On: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    c.drawString(
+        left_x,
+        85,
+        "Disclaimer: This report is AI-generated and is not a medical diagnosis."
+    )
+
+    c.save()
+    return pdf_path
+
+# ======================================================
+# PREDICT
+# ======================================================
+def predict(image, name, patient_id, age, notes):
     if image is None:
-        return "Please upload an image"
+        return "Upload MRI image", "N/A", None
 
-    image = image.resize((IMG_SIZE, IMG_SIZE))
-    img_array = np.array(image) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+    img = preprocess(image)
 
-    prediction = model.predict(img_array)[0][0]
-    label = CLASS_NAMES[int(prediction > 0.5)]
-    confidence = prediction if label == "Tumor Detected" else 1 - prediction
+    tumor_prob = float(tumor_model.predict(img)[0][0])
+    mri_prob = float(mri_model.predict(img)[0][0])
 
-    return f"{label} (Confidence: {confidence:.2%})"
+    tumor_label = "Tumor Detected" if tumor_prob >= 0.5 else "No Tumor Detected"
+    mri_label = "Pattern Suggests Tumor" if mri_prob >= 0.5 else "Normal Pattern"
 
-demo = gr.Interface(
+    pdf_path = generate_pdf(
+        name, patient_id, age, notes,
+        tumor_label, tumor_prob,
+        mri_label, mri_prob,
+        image
+    )
+
+    return (
+        f"{tumor_label} ({tumor_prob*100:.2f}%)",
+        f"{mri_label} ({mri_prob*100:.2f}%)",
+        pdf_path
+    )
+
+# ======================================================
+# UI
+# ======================================================
+app = gr.Interface(
     fn=predict,
-    inputs=gr.Image(type="pil", label="Upload MRI Image"),
-    outputs=gr.Textbox(label="Prediction"),
-    title="Brain Tumor Detection",
-    description="Upload a brain MRI image to detect tumor presence."
+    inputs=[
+        gr.Image(type="pil", label="Upload MRI Image"),
+        gr.Textbox(label="Patient Name"),
+        gr.Textbox(label="Patient ID"),
+        gr.Textbox(label="Age"),
+        gr.Textbox(label="Notes")
+    ],
+    outputs=[
+        gr.Textbox(label="Tumor Detection Result"),
+        gr.Textbox(label="MRI Pattern Analysis"),
+        gr.File(label="Download Report (PDF)")
+    ],
+    title="🧠 Brain Tumor Detection System",
+    description="Upload MRI → AI Analysis → Download Medical Report"
 )
 
-demo.launch(server_name="0.0.0.0", server_port=7860)
+if __name__ == "__main__":
+    app.launch()
